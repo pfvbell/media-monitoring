@@ -82,7 +82,7 @@ if yt_type == 'Video':
         st.text('There are no transcripts available for this youtube video')
         st.text('Try using the Download Audio and Transcrive option')
 
-elif yt_type == 'Channels':
+elif yt_type == 'Channel':
     try:
         id_list, views_list, title_list, time_list, text_list, url_list = [], [], [], [], [], []
         channels = ['UCyzkxMLeZDcd_Qhzh6uMgbg', 'UCeRYN0tYBQVrC2cKsxJjdow', 'UCm0yTweyAa0PwEIp0l3N_gA', 'UC0vn8ISa4LKMunLbzaXLnOQ', 'UCmbm72l60p3OH4aL4o7BFeA', 'UCnLxFpGiCi-u3RLx9uF8bOg', 'UCO79NsDE5FpMowUH1YcBFcA']
