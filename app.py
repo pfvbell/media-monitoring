@@ -7,8 +7,6 @@ from youtube_dl import YoutubeDL
 from pydub import AudioSegment
 import scrapetube
 
-from video_extraction import vid_to_audio, speech_recognizer, export_to_txt
-
 
 # Broadcast/ News libraries
 from youtube_transcript_api import YouTubeTranscriptApi
