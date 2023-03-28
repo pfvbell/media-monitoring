@@ -17,8 +17,8 @@ from youtube_transcript_api import YouTubeTranscriptApi
 
 ### Key Q: Can we download channel 4 and/ or iplayer content? ###
 
-st.title('News Monitoring')
-st.header('Campaign Lab Prototype - Nov 2022')
+st.title('Youtube Monitoring App')
+st.header('Campaign Lab Prototype')
 st.write("##")
 st.markdown('See [this doc](https://docs.google.com/document/d/1DD6Om2AfKQ-h67_qIHvqyR58MAtHN7yQ6yNC1p5sB1Q/edit#heading=h.38g4fibegj6g) for further details')
 st.write("##")
