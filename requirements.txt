@@ -7,3 +7,4 @@ moviepy
 pydub
 youtube_dl
 scrapetube
+langchain

@@ -6,7 +6,9 @@ from random import randint
 from youtube_dl import YoutubeDL
 from pydub import AudioSegment
 import scrapetube
-
+from langchain.document_loaders import YoutubeLoader
+import re
+import time
 
 # Broadcast/ News libraries
 from youtube_transcript_api import YouTubeTranscriptApi
@@ -23,59 +25,65 @@ st.write("##")
 st.markdown('See [this doc](https://docs.google.com/document/d/1DD6Om2AfKQ-h67_qIHvqyR58MAtHN7yQ6yNC1p5sB1Q/edit#heading=h.38g4fibegj6g) for further details')
 st.write("##")
 
-    
+def extract_video_id(url):
+    pattern = r"v=([a-zA-Z0-9_-]+)"
+    match = re.search(pattern, url)
+    if match:
+        return match.group(1)
+    return None
 
 yt_type = st.radio('Do you want to search by video or channel?', ['Video', 'Channel'])
 if yt_type == 'Video':
     try:
-        video_id = st.text_input('Enter Youtube Video ID (the bit after v= in the url). E.g. VkKmPQ1AFks')
+        yt_url = st.text_input('Enter Youtube Video url')
+        video_id = extract_video_id(yt_url)
         if video_id:
             download_type = st.radio('How do you want to get transcript?', ['Youtube API', 'Download audio and transcribe'])
-            if download_type == 'Youtube API':
-                video_data = YouTubeTranscriptApi.get_transcript(video_id)
-                text_chunks = []
-                for chunk in video_data:
-                    text_chunks.append(chunk['text'])
-                text_output = st.radio(
-                'What analysis do you want?',
-                ('Full Transcript', 'Labour Mentions', 'Search'))
-                # Other options: 'Sentences with other parties', 'Sentences with other parties', Sentences with politicians or SEARCH FOR KEYWORD
-                if text_output == 'Full Transcript':
-                    for sentence in text_chunks:
-                        st.text(sentence)
-                elif text_output == 'Labour Mentions': # Get 3 chunk sequence containing 'labour'
-                    labour_indices = [i for i, s in enumerate(text_chunks) if 'labour' in s]
+
+            video_data = YouTubeTranscriptApi.get_transcript(video_id)
+            text_chunks = []
+            for chunk in video_data:
+                text_chunks.append(chunk['text'])
+            text_output = st.radio(
+            'What analysis do you want?',
+            ('Full Transcript', 'Labour Mentions', 'Search'))
+            # Other options: 'Sentences with other parties', 'Sentences with other parties', Sentences with politicians or SEARCH FOR KEYWORD
+            if text_output == 'Full Transcript':
+                for sentence in text_chunks:
+                    st.text(sentence)
+            elif text_output == 'Labour Mentions': # Get 3 chunk sequence containing 'labour'
+                labour_indices = [i for i, s in enumerate(text_chunks) if 'labour' in s]
+                for i, text in enumerate(text_chunks):
+                    if i in labour_indices:
+                        st.subheader(f'Labour Mention Context:')
+                        # labour_context_string = ' '.join(text_chunks[i-1:i+6])
+                        labour_context_sequence = text_chunks[i-1:i+6]
+                        for labour_str in labour_context_sequence:
+                            st.text(labour_str)
+            else: 
+                search_word = st.text_input('word to search')
+                if search_word:
+                    search_word_indices = [i for i, s in enumerate(text_chunks) if search_word in s]
                     for i, text in enumerate(text_chunks):
-                        if i in labour_indices:
-                            st.subheader(f'Labour Mention Context:')
+                        if i in search_word_indices:
+                            st.subheader(f'Search Word Mention context:')
                             # labour_context_string = ' '.join(text_chunks[i-1:i+6])
-                            labour_context_sequence = text_chunks[i-1:i+6]
-                            for labour_str in labour_context_sequence:
-                                st.text(labour_str)
-                else: 
-                    search_word = st.text_input('word to search')
-                    if search_word:
-                        search_word_indices = [i for i, s in enumerate(text_chunks) if search_word in s]
-                        for i, text in enumerate(text_chunks):
-                            if i in search_word_indices:
-                                st.subheader(f'Search Word Mention context:')
-                                # labour_context_string = ' '.join(text_chunks[i-1:i+6])
-                                search_context_sequence = text_chunks[i-1:i+6]
-                                for search_str in search_context_sequence:
-                                    st.text(search_str)
-            elif download_type == 'Download audio and transcribe':
-                with st.spinner(text='In progress'):
-                    audio_downloader = YoutubeDL({'format':'bestaudio'})
-                    yt_link = "https://youtu.be/" + video_id
-                    yt_m4a_file = audio_downloader.extract_info(yt_link)
-                    yt_file_title = yt_m4a_file['title']
-                    yt_file_name = yt_file_title + '-' + video_id + '.m4a'
-                    wav_filename = rf"audio_{video_id}.wav"
-                    # yt_m4a_file needs to be changed in track.
-                    track = AudioSegment.from_file(yt_file_name,  format= 'm4a')
-                    file_handle = track.export(wav_filename, format='wav')
-                    vid_text_str = speech_recognizer(wav_filename)
-                    st.text(vid_text_str[0:20])
+                            search_context_sequence = text_chunks[i-1:i+6]
+                            for search_str in search_context_sequence:
+                                st.text(search_str)
+            # elif download_type == 'Download audio and transcribe':
+            #     with st.spinner(text='In progress'):
+            #         audio_downloader = YoutubeDL({'format':'bestaudio'})
+            #         yt_link = "https://youtu.be/" + video_id
+            #         yt_m4a_file = audio_downloader.extract_info(yt_link)
+            #         yt_file_title = yt_m4a_file['title']
+            #         yt_file_name = yt_file_title + '-' + video_id + '.m4a'
+            #         wav_filename = rf"audio_{video_id}.wav"
+            #         # yt_m4a_file needs to be changed in track.
+            #         track = AudioSegment.from_file(yt_file_name,  format= 'm4a')
+            #         file_handle = track.export(wav_filename, format='wav')
+            #         vid_text_str = speech_recognizer(wav_filename)
+            #         st.text(vid_text_str[0:20])
 
     except Exception as e:
         st.text(e)
@@ -83,14 +91,55 @@ if yt_type == 'Video':
         st.text('Try using the Download Audio and Transcrive option')
 
 elif yt_type == 'Channel':
-    try:
-        id_list, views_list, title_list, time_list, text_list, url_list = [], [], [], [], [], []
-        channels = ['UCyzkxMLeZDcd_Qhzh6uMgbg', 'UCeRYN0tYBQVrC2cKsxJjdow', 'UCm0yTweyAa0PwEIp0l3N_gA', 'UC0vn8ISa4LKMunLbzaXLnOQ', 'UCmbm72l60p3OH4aL4o7BFeA', 'UCnLxFpGiCi-u3RLx9uF8bOg', 'UCO79NsDE5FpMowUH1YcBFcA']
-        with st.spinner(text='In progress'):
-            for channel_id in channels:
-                channel_dict = scrapetube.get_channel(channel_id, limit=15)
+    # st.selectbox('Pick one', ['Recusant Nine', 'Talk TV'])
+    # channels_dict = {'Recusant Nine': "https://www.youtube.com/@RecusantNine", 'Talk TV': "https://www.youtube.com/channel/UCm0yTweyAa0PwEIp0l3N_gA"}
+    channel_id = st.text_input('Youtube Channel URL')
+    st.markdown('E.g.')
+    st.markdown('https://www.youtube.com/@RecusantNine')
+    st.markdown('https://www.youtube.com/@talktv')
+    num_vids = st.slider('How many videos to analyse', 0,40)
+    channel_generate = st.button('Search Channel')
+    # Create an empty slot for progress
+    progress_slot = st.empty()
+    
+    if channel_generate:
+        try:
+            id_list, views_list, title_list, time_list, text_list, url_list = [], [], [], [], [], []
+            # channels = ['UCyzkxMLeZDcd_Qhzh6uMgbg', 'UCeRYN0tYBQVrC2cKsxJjdow', 'UCm0yTweyAa0PwEIp0l3N_gA', 'UC0vn8ISa4LKMunLbzaXLnOQ', 'UCmbm72l60p3OH4aL4o7BFeA', 'UCnLxFpGiCi-u3RLx9uF8bOg', 'UCO79NsDE5FpMowUH1YcBFcA']
+            # with st.spinner(text='In progress'):
+            #     for channel_id in channels:
+            #         channel_dict = scrapetube.get_channel(channel_id, limit=15)
+                
+            #         for i, vid in enumerate(channel_dict):
+            #             # if vid['publishedTimeText']['simpleText'] == time_option:
+            #             #     break 
+            #             # else:
+            #             id_list.append(vid['videoId'])
+            #             views_list.append(vid['viewCountText']['simpleText'])
+            #             time_list.append(vid['publishedTimeText']['simpleText'])
+            #             title_list.append(vid['title']['runs'][0]['text'])
+            #             url_link = 'https://youtu.be/' + vid['videoId']
+            #             url_list.append(url_link)
+
+            #             try:
+            #                 video_data = YouTubeTranscriptApi.get_transcript(vid['videoId'])
+            #                 text_chunks = []
+            #                 for chunk in video_data:
+            #                     text_chunks.append(chunk['text'])
+            #                     full_text = ' '.join(text_chunks)
+            #                 text_list.append(full_text)
+            #             except:
+            #                 text_list.append('No transcript')
+            # d = {'video_id': id_list, 'url': url_list, 'views': views_list, 'title': title_list, 'time': time_list, 'text': text_list}
+            # # Add in Sentiment and Summary later?
+            # df = pd.DataFrame(data=d)
+            
+            with st.spinner(text='In progress'):
+            
+                channel_dict = scrapetube.get_channel(channel_url=channel_id, limit=num_vids)
             
                 for i, vid in enumerate(channel_dict):
+                    progress_slot.text(f"Video {i + 1} of {num_vids} scraped.")  # Write the progress to the slot
                     # if vid['publishedTimeText']['simpleText'] == time_option:
                     #     break 
                     # else:
@@ -102,70 +151,82 @@ elif yt_type == 'Channel':
                     url_list.append(url_link)
 
                     try:
-                        video_data = YouTubeTranscriptApi.get_transcript(vid['videoId'])
+                        try:
+                            loader = YoutubeLoader.from_youtube_url(url_link, add_video_info=True)
+                            video_data = loader.load()
+                        except Exception as e:
+                            print(e)
+                            try:
+                                video_data = YouTubeTranscriptApi.get_transcript(vid['videoId'])
+                            except Exception as e:
+                                print(e)
+                            
                         text_chunks = []
                         for chunk in video_data:
                             text_chunks.append(chunk['text'])
                             full_text = ' '.join(text_chunks)
                         text_list.append(full_text)
+                        time.sleep(1)
                     except:
                         text_list.append('No transcript')
-        d = {'video_id': id_list, 'url': url_list, 'views': views_list, 'title': title_list, 'time': time_list, 'text': text_list}
-        # Add in Sentiment and Summary later?
-        df = pd.DataFrame(data=d)
 
-        text_option = st.radio(
-        'What analysis do you want?',
-        ('Labour Mentions', 'Custom Search'))
-        if text_option == 'Labour Mentions':
-            for i, text in enumerate(df.text.values):
-                split_text = text.split()
+            d = {'video_id': id_list, 'url': url_list, 'views': views_list, 'title': title_list, 'time': time_list, 'text': text_list}
+            # Add in Sentiment and Summary later?
+            df = pd.DataFrame(data=d)
+            st.dataframe(df)
 
-                search_list = ['labour', 'starmer', 'rayner', 'reeves']
+            text_option = st.radio(
+            'What analysis do you want?',
+            ('Labour Mentions', 'Custom Search'))
+            if text_option == 'Labour Mentions':
+                for i, text in enumerate(df.text.values):
+                    split_text = text.split()
 
-                for name in search_list:
-                    indices = [i for i, s in enumerate(split_text) if s == name or name in s]
-                    if indices:
-                        st.text('***********')
-                        st.text(df.title.values[i])
-                        st.text(df.url.values[i])
-                        st.text(df.time.values[i])
-                        st.text(df.views.values[i])
-                        for j in indices:
-                            st.markdown(f'**{name}** Mention Context:')
-                            # labour_context_string = ' '.join(text_chunks[i-1:i+6])
-                            context_sequence = split_text[j-10:j+10]
-                            st.text(' '.join(context_sequence))
+                    search_list = ['labour', 'starmer', 'rayner', 'reeves']
 
-
-
-        elif text_option == 'Custom Search':
-            try:
-                custom_search_word = st.text_input('MP to search')
-                if custom_search_word:
-                    with st.spinner(text='In progress'):
-                        for i, text in enumerate(df.text.values):
-                            split_text = text.split()
-
-                            indices = [i for i, s in enumerate(split_text) if s == custom_search_word or custom_search_word in s]
-                            if indices:
-                                st.text('***********')
-                                st.text(df.title.values[i])
-                                st.text(df.time.values[i])
-                                st.text(df.views.values[i])
-                                for j in indices:
-                                    st.markdown(f'**{custom_search_word}** Mention Context:')
-                                    # labour_context_string = ' '.join(text_chunks[i-1:i+6])
-                                    context_sequence = split_text[j-10:j+10]
-                                    st.text(' '.join(context_sequence))
-            except:
-                st.text(f'No records found in channel {channel_id} for {custom_search_word}')
-                
+                    for name in search_list:
+                        indices = [i for i, s in enumerate(split_text) if s == name or name in s]
+                        if indices:
+                            st.text('***********')
+                            st.text(df.title.values[i])
+                            st.text(df.url.values[i])
+                            st.text(df.time.values[i])
+                            st.text(df.views.values[i])
+                            for j in indices:
+                                st.markdown(f'**{name}** Mention Context:')
+                                # labour_context_string = ' '.join(text_chunks[i-1:i+6])
+                                context_sequence = split_text[j-10:j+10]
+                                st.text(' '.join(context_sequence))
 
 
-    except Exception as e:
-        st.text(e)
-        st.text('There are no transcripts available for this youtube channel')
+
+            elif text_option == 'Custom Search':
+                try:
+                    custom_search_word = st.text_input('MP to search')
+                    if custom_search_word:
+                        with st.spinner(text='In progress'):
+                            for i, text in enumerate(df.text.values):
+                                split_text = text.split()
+
+                                indices = [i for i, s in enumerate(split_text) if s == custom_search_word or custom_search_word in s]
+                                if indices:
+                                    st.text('***********')
+                                    st.text(df.title.values[i])
+                                    st.text(df.time.values[i])
+                                    st.text(df.views.values[i])
+                                    for j in indices:
+                                        st.markdown(f'**{custom_search_word}** Mention Context:')
+                                        # labour_context_string = ' '.join(text_chunks[i-1:i+6])
+                                        context_sequence = split_text[j-10:j+10]
+                                        st.text(' '.join(context_sequence))
+                except:
+                    st.text(f'No records found in channel {channel_id} for {custom_search_word}')
+                    
+
+
+        except Exception as e:
+            st.text(e)
+            st.text('There are no transcripts available for this youtube channel')
 
 # st.text('Product Qs')
 # st.text('Q1: Do you want aggregate visuals on Topics?')
